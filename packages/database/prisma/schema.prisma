@@ -1,0 +1,112 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Organization {
+  id        String    @id @default(uuid())
+  name      String
+  slug      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  projects  Project[]
+  users     User[]
+}
+
+model User {
+  id             String        @id @default(uuid())
+  email          String        @unique
+  name           String
+  role           String        @default("member")
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+}
+
+model Project {
+  id             String         @id @default(uuid())
+  name           String
+  description    String?
+  targetBaseUrl  String
+  isVerified     Boolean        @default(false)
+  verificationToken String?
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  scenarios      TestScenario[]
+  runs           TestRun[]
+  experiments    Experiment[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model TestScenario {
+  id          String    @id @default(uuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  loadPattern String    @default("ramp-up")
+  virtualUsers Int      @default(50)
+  durationSec Int       @default(30)
+  configJson  String    // JSON encoded ScenarioConfig
+  runs        TestRun[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model TestRun {
+  id           String        @id @default(uuid())
+  projectId    String
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scenarioId   String
+  scenario     TestScenario  @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  status       String        @default("pending") // pending, running, completed, failed
+  startedAt    DateTime      @default(now())
+  completedAt  DateTime?
+  totalRequests Int          @default(0)
+  errorRate    Float         @default(0.0)
+  avgRps       Float         @default(0.0)
+  p50Ms        Float         @default(0.0)
+  p90Ms        Float         @default(0.0)
+  p95Ms        Float         @default(0.0)
+  p99Ms        Float         @default(0.0)
+  avgMs        Float         @default(0.0)
+  resultJson   String?       // JSON encoded AggregatedRunResult
+  diagnosisJson String?      // JSON encoded BottleneckDiagnosis
+  baselineExperiments Experiment[] @relation("BaselineRuns")
+  optimizedExperiments Experiment[] @relation("OptimizedRuns")
+}
+
+model Experiment {
+  id              String   @id @default(uuid())
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name            String
+  description     String?
+  baselineRunId   String
+  baselineRun     TestRun  @relation("BaselineRuns", fields: [baselineRunId], references: [id], onDelete: Cascade)
+  optimizedRunId  String
+  optimizedRun    TestRun  @relation("OptimizedRuns", fields: [optimizedRunId], references: [id], onDelete: Cascade)
+  latencyReductionPct Float
+  throughputDeltaPct  Float
+  summary         String?
+  createdAt       DateTime @default(now())
+}
+
+model CiCheck {
+  id              String   @id @default(uuid())
+  commitSha       String
+  branch          String
+  scenarioId      String
+  maxP95Ms        Float
+  maxErrorRate    Float
+  measuredP95Ms   Float
+  measuredErrorRate Float
+  status          String   // PASSED, FAILED
+  message         String
+  createdAt       DateTime @default(now())
+}

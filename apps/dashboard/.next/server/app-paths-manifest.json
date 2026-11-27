@@ -1,0 +1,5 @@
+{
+  "/traces/page": "app/traces/page.js",
+  "/page": "app/page.js",
+  "/scenarios/new/page": "app/scenarios/new/page.js"
+}
